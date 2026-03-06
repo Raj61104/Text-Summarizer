@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Summarizer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Text Summarizer</h1>
+            <button id="themeToggle" class="theme-toggle" title="Toggle Dark Mode">
+                <span class="sun">☀️</span>
+                <span class="moon">🌙</span>
+            </button>
+        </div>
+        <p class="subtitle">Summarize your text using TF-IDF analysis</p>
+        
+        <div class="content">
+            <div class="input-section">
+                <label for="inputText">Original Text:</label>
+                <textarea 
+                    id="inputText" 
+                    placeholder="Paste your text here..."></textarea>
+                <div style="display:flex;gap:10px;align-items:center;margin-top:12px;">
+                    <label for="numSentences" style="font-weight:600;">Sentences:</label>
+                    <input id="numSentences" type="number" min="1" max="10" value="3" style="width:80px;padding:8px;border-radius:6px;border:1px solid #e0e0e0;">
+                    <button id="summarizeBtn" onclick="summarizeText()">Summarize</button>
+                </div>
+                <div id="loading" class="loading" style="display: none;">
+                    Summarizing...
+                </div>
+                <div id="error" class="error" style="display: none;"></div>
+            </div>
+            
+            <div class="output-section">
+                <label for="outputText">Summary:</label>
+                <textarea 
+                    id="outputText" 
+                    placeholder="Summary will appear here..." 
+                    readonly></textarea>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function summarizeText() {
+            const inputText = document.getElementById('inputText').value.trim();
+            const outputText = document.getElementById('outputText');
+            const loadingDiv = document.getElementById('loading');
+            const errorDiv = document.getElementById('error');
+            const summarizeBtn = document.getElementById('summarizeBtn');
+
+            // Clear previous messages
+            errorDiv.style.display = 'none';
+            errorDiv.textContent = '';
+
+            // Validate input
+            if (!inputText) {
+                errorDiv.textContent = 'Please enter some text to summarize.';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            // Show loading state
+            loadingDiv.style.display = 'block';
+            summarizeBtn.disabled = true;
+            outputText.value = '';
+
+            try {
+                // Read number of sentences
+                const numSentencesInput = document.getElementById('numSentences');
+                let numSentences = parseInt(numSentencesInput.value) || 3;
+                if (numSentences < 1) numSentences = 1;
+
+                const response = await fetch('/summarize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ text: inputText, num_sentences: numSentences })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    outputText.value = data.summary;
+                } else {
+                    errorDiv.textContent = data.error || 'An error occurred while summarizing.';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                errorDiv.textContent = 'Network error: ' + error.message;
+                errorDiv.style.display = 'block';
+            } finally {
+                loadingDiv.style.display = 'none';
+                summarizeBtn.disabled = false;
+            }
+        }
+
+        // Allow Enter key in textarea to trigger summarize (Ctrl+Enter)
+        document.getElementById('inputText').addEventListener('keydown', function(event) {
+            if (event.ctrlKey && event.key === 'Enter') {
+                summarizeText();
+            }
+        });
+
+        // Theme toggle functionality
+        const themeToggle = document.getElementById('themeToggle');
+        const body = document.body;
+        const sunIcon = themeToggle.querySelector('.sun');
+        const moonIcon = themeToggle.querySelector('.moon');
+
+        // Check for saved theme preference or default to light mode
+        const currentTheme = localStorage.getItem('theme') || 'light';
+        body.setAttribute('data-theme', currentTheme);
+        updateThemeIcon(currentTheme);
+
+        function updateThemeIcon(theme) {
+            if (theme === 'light') {
+                sunIcon.style.display = 'none';
+                moonIcon.style.display = 'inline';
+            } else {
+                sunIcon.style.display = 'inline';
+                moonIcon.style.display = 'none';
+            }
+        }
+
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = body.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            
+            body.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon(newTheme);
+        });
+    </script>
+</body>
+</html>
